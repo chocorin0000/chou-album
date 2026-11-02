@@ -9,7 +9,7 @@ import { Item, Page, PHOTO, TEXT, INK, LINE, css, COLORS, WIDTH_NAMES, PEN_W, LI
 import { PageView, SELECT, PEN, LINE_T, ARROW, TEXT_T } from './pageview.js';
 import { el, btn, toast, dialog, confirmDlg, askText, check, applyFull, fullSize, shareFile, shareAfterWork, isIPad } from './ui.js';
 
-const VERSION = 'v1（2026-11-02）';
+const VERSION = 'v2（2026-11-02）';
 const $ = id => document.getElementById(id);
 const SCREENS = ['scr-list', 'scr-album', 'scr-edit', 'scr-crop', 'scr-set'];
 let curScreen = 'scr-list';
@@ -64,7 +64,6 @@ async function fillThumb(pic, pid, token) {
   urls.push(u);
   const img = el('img');
   img.src = u;
-  pic.textContent = '';
   pic.classList.remove('empty');
   pic.appendChild(img);
 }
@@ -116,7 +115,7 @@ async function showList() {
     let last = a.created;
     for (const pid of a.pages) { const p = await S.loadPage(pid); if (p) last = Math.max(last, p.updated); }
     const card = el('div', 'card');
-    const pic = el('div', 'pic empty', 'ページなし');
+    const pic = el('div', 'pic empty'); pic.dataset.msg = 'ページなし';
     card.append(pic, el('div', 'name', a.title || '（名前なし）'), el('div', 'sub', `${a.pages.length} ページ　${ymd(last || Date.now())}`));
     const more = el('button', 'more', '︙');
     more.type = 'button';
@@ -134,6 +133,14 @@ async function listMenu() {
   else if (v === 2) about();
 }
 
+function screenInfo() {
+  const t = el('div'); t.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0;visibility:hidden';
+  document.body.appendChild(t);
+  const cs = getComputedStyle(t), r = `${innerWidth}x${innerHeight} / screen ${screen.width}x${screen.height} / vv ${visualViewport ? Math.round(visualViewport.height) : '-'} / safe ${cs.paddingTop} ${cs.paddingBottom} / ${standalone() ? 'home' : 'safari'}`;
+  t.remove();
+  return r;
+}
+
 function about() {
   dialog({
     title: '超！アルバム Web 版', cancel: '閉じる',
@@ -141,6 +148,7 @@ function about() {
       + 'アルバムは、この iPhone・iPad の中（Safari の保存場所）に入ります。Safari の「履歴と Web サイトデータを消去」をすると消えてしまうので、'
       + 'ときどき「保存・バックアップ」でバックアップを取ってください。\n\n'
       + 'Android 版「超！アルバム」とデータの形が同じなので、バックアップのファイルや Google ドライブ（同じスクリプト）で行き来できます。'
+      + '\n\n画面: ' + screenInfo()
   });
 }
 
@@ -276,7 +284,7 @@ async function showAlbum(id) {
     const p = await S.loadPage(pid);
     if (token !== listToken) return;
     const card = el('div', 'card');
-    const pic = el('div', 'pic empty', p ? '' : '読めません');
+    const pic = el('div', 'pic empty'); pic.dataset.msg = p ? '' : '読めません';
     card.append(pic, el('div', 'name', `${i + 1} ページ`), el('div', 'sub', p ? mdhm(p.updated) : ''));
     const more = el('button', 'more', '︙');
     more.type = 'button';
@@ -475,6 +483,8 @@ function setViewing(v) {
   vis(E.vpanel, v);
   vis(c.bFit, !v);
   vis(c.bSend, v);
+  vis(c.bUndo, !v);
+  vis(c.bRedo, !v);
   c.bMode.textContent = v ? '閲覧中' : '編集中';
   c.bMode.style.background = v ? '#8EC5E8' : '#FFC94D';
   pv.invalidate();

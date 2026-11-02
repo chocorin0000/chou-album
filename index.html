@@ -19,6 +19,7 @@
   --sa-l: env(safe-area-inset-left, 0px); --sa-r: env(safe-area-inset-right, 0px);
 }
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { background: var(--bar); }
 html, body {
   margin: 0; height: 100%; overflow: hidden; background: var(--bar); color: #222;
   font-family: -apple-system, "Hiragino Sans", "Hiragino Kaku Gothic ProN", sans-serif;
@@ -27,7 +28,7 @@ html, body {
 }
 .screen {
   position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--bar);
-  padding: var(--sa-t) var(--sa-r) var(--sa-b) var(--sa-l);
+  padding: calc(var(--sa-t) + 4px) var(--sa-r) var(--sa-b) var(--sa-l);
 }
 .screen[hidden] { display: none; }
 html.full .screen { position: absolute; }
@@ -64,8 +65,9 @@ input, textarea { font: inherit; }
 .box { flex: 1; overflow-y: auto; background: var(--desk); padding: 12px; -webkit-overflow-scrolling: touch; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
 .card { background: var(--card); border-radius: 12px; padding: 8px; position: relative; cursor: pointer; }
-.card .pic { width: 100%; aspect-ratio: 1 / 1.1; background: #fff; display: flex; align-items: center; justify-content: center; overflow: hidden; border-radius: 4px; }
-.card .pic img { max-width: 100%; max-height: 100%; display: block; box-shadow: 0 1px 4px rgba(0,0,0,0.25); }
+.card .pic { position: relative; width: 100%; padding-top: 110%; height: 0; background: #fff; overflow: hidden; border-radius: 4px; }
+.card .pic img { position: absolute; left: 4px; top: 4px; width: calc(100% - 8px); height: calc(100% - 8px); object-fit: contain; display: block; }
+.card .pic.empty::after { content: attr(data-msg); position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
 .card .pic.empty { background: #EEE8DD; color: #8A8090; font-size: 13px; }
 .card .name { font-size: 17px; font-weight: bold; color: #2C2436; margin-top: 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 30px; }
 .card .sub { font-size: 13px; color: #6A6070; }

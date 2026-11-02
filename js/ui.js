@@ -121,13 +121,16 @@ export function check(label, on) {
   return l;
 }
 
+// 超！アルバムでは広げない（2026-11-02、iPhone のホーム画面から開いたとき、広げた分だけ下のボタンが切れた）
+const WIDEN = false;
+
 /**
  * 本当の画面の大きさ。ホーム画面から開いたとき、iPhone は高さを少なく教えてきて、下に隙間ができることがある。
  * そのときは画面（screen）の大きさまで広げる（iPhone だけ。iPad では広げない。超！手書き Web 版の v5 と同じ）
  */
 export function fullSize() {
   let W = innerWidth, H = innerHeight;
-  if (navigator.standalone && screen.width && screen.height && Math.min(screen.width, screen.height) < 600) {
+  if (WIDEN && navigator.standalone && screen.width && screen.height && Math.min(screen.width, screen.height) < 600) {
     const a = Math.max(screen.width, screen.height), b = Math.min(screen.width, screen.height);
     const [fw, fh] = W < H ? [b, a] : [a, b];
     if (fw >= W && fw - W <= 80) W = fw;
