@@ -1,0 +1,245 @@
+// 超！アルバム（FreeAlbum）のクラウド保存用スクリプト（v13 から: アルバムごとに 1 つの PDF）
+// Google ドライブの「超！アルバム」フォルダに、アルバムの名前の PDF（全部のページを 1 つにまとめたもの）を、
+// 「復元用データ」フォルダに、アプリに戻す用のデータ（アルバム・ページ・写真）を保存する。
+//
+// 準備:
+//   1. プロジェクトの設定（歯車）→ スクリプト プロパティ に PASSWORD（合言葉）を入れて保存
+//   2. デプロイ → 新しいデプロイ → 種類「ウェブアプリ」、次のユーザーとして実行「自分」、
+//      アクセスできるユーザー「全員」→ デプロイ → 承認 → ウェブアプリの URL をアプリの設定に入れる
+//   スクリプトを入れ替えたときは: デプロイ → デプロイを管理 → 鉛筆 → バージョン「新バージョン」→ デプロイ（URL は変わらない）
+
+const FOLDER_NAME = '超！アルバム';
+const DATA_NAME = '復元用データ';
+const DEL_NAME = '消したもの';
+const VERSION = 13;
+
+function doGet() {
+  return out({ ok: true, app: 'FreeAlbum', version: VERSION });
+}
+
+function doPost(e) {
+  let req;
+  try {
+    req = JSON.parse(e.postData.contents);
+  } catch (err) {
+    return out({ ok: false, error: '送られたデータが読めません' });
+  }
+  const pass = PropertiesService.getScriptProperties().getProperty('PASSWORD');
+  if (!pass) return out({ ok: false, error: 'スクリプト プロパティに PASSWORD がありません' });
+  if (req.key !== pass) return out({ ok: false, error: '合言葉が違います' });
+  try {
+    switch (req.action) {
+      case 'ping': {
+        const f = folders();
+        return out({ ok: true, version: VERSION, folder: f.main.getName(), url: f.main.getUrl(), albums: names(f.albums, /^(\d+)\.json$/).length });
+      }
+      case 'list': return out(list());
+      case 'putImg': return out(putImg(req));
+      case 'savePage': return out(locked(function () { return savePage(req); }));
+      case 'saveAlbum': return out(locked(function () { return saveAlbum(req); }));
+      case 'savePdf': return out(locked(function () { return savePdf(req); }));
+      case 'get': return out(get(req));
+      case 'getImg': return out(getImg(req));
+      case 'delPage': return out(locked(function () { return delPage(req); }));
+      case 'delAlbum': return out(locked(function () { return delAlbum(req); }));
+    }
+    return out({ ok: false, error: '知らない命令です: ' + req.action });
+  } catch (err) {
+    return out({ ok: false, error: String(err) });
+  }
+}
+
+function out(o) {
+  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function locked(fn) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    return fn();
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function cleanId(id) {
+  const s = String(id || '').replace(/[^0-9]/g, '');
+  if (!s) throw new Error('id がありません');
+  return s;
+}
+
+// 写真のファイル名（アプリがつけた「数字_英数字.jpg」）だけを通す
+function cleanImg(name) {
+  const s = String(name || '');
+  if (!/^[0-9A-Za-z_]+\.jpg$/.test(s)) throw new Error('写真の名前が正しくありません: ' + s);
+  return s;
+}
+
+// フォルダやファイルの名前に使えない字を直す
+function cleanName(s) {
+  s = String(s || '').replace(/[\\/:*?"<>|]/g, '_').trim();
+  return s || '（名前なし）';
+}
+
+function sub(parent, name) {
+  const it = parent.getFoldersByName(name);
+  return it.hasNext() ? it.next() : parent.createFolder(name);
+}
+
+// 「超！アルバム」フォルダ（マイドライブの直下）と、その中のフォルダ
+function folders() {
+  const props = PropertiesService.getScriptProperties();
+  let main = null;
+  const id = props.getProperty('FOLDER_ID');
+  if (id) {
+    try {
+      main = DriveApp.getFolderById(id);
+      if (main.isTrashed()) main = null;
+    } catch (e) {
+      main = null;
+    }
+  }
+  if (!main) {
+    main = sub(DriveApp.getRootFolder(), FOLDER_NAME);
+    props.setProperty('FOLDER_ID', main.getId());
+  }
+  const data = sub(main, DATA_NAME);
+  return {
+    main: main, data: data, del: sub(main, DEL_NAME),
+    albums: sub(data, 'アルバム'), pages: sub(data, 'ページ'), imgs: sub(data, '写真')
+  };
+}
+
+// フォルダの中のファイル名のうち、形に合うもの
+function names(folder, re) {
+  const outs = [];
+  const it = folder.getFiles();
+  while (it.hasNext()) {
+    const n = it.next().getName();
+    if (re.test(n)) outs.push(n);
+  }
+  return outs;
+}
+
+// アルバムの PDF（「超！アルバム」フォルダの中。説明欄にアルバムの id）
+function findPdfs(f, albumId) {
+  const outs = [];
+  const it = f.main.getFiles();
+  while (it.hasNext()) {
+    const file = it.next();
+    if (file.getDescription() === albumId) outs.push(file);
+  }
+  return outs;
+}
+
+// v12 までの、アルバムごとのフォルダ（中にページの JPEG）。説明欄にアルバムの id
+function oldFolders(f, albumId) {
+  const outs = [];
+  const it = f.main.getFolders();
+  while (it.hasNext()) {
+    const d = it.next();
+    if (d.getDescription() === albumId) outs.push(d);
+  }
+  return outs;
+}
+
+// 同じ名前のデータのファイルを入れ替える（説明欄に、更新の印を入れる）
+function replaceFile(folder, name, text, mark) {
+  const old = folder.getFilesByName(name);
+  while (old.hasNext()) old.next().setTrashed(true);
+  folder.createFile(name, text, 'application/json').setDescription(String(mark));
+}
+
+function list() {
+  const f = folders();
+  const albums = [], pages = [];
+  let it = f.albums.getFiles();
+  while (it.hasNext()) {
+    const file = it.next();
+    const m = file.getName().match(/^(\d+)\.json$/);
+    if (m) albums.push({ id: m[1], mark: file.getDescription() });
+  }
+  it = f.pages.getFiles();
+  while (it.hasNext()) {
+    const file = it.next();
+    const m = file.getName().match(/^(\d+)\.json$/);
+    if (m) pages.push({ id: m[1], updated: Number(file.getDescription()) || 0 });
+  }
+  return { ok: true, albums: albums, pages: pages, imgs: names(f.imgs, /\.jpg$/) };
+}
+
+// 写真（取り込んだ写真の写し）。同じ名前のものがあれば何もしない
+function putImg(req) {
+  const name = cleanImg(req.name);
+  const f = folders();
+  if (f.imgs.getFilesByName(name).hasNext()) return { ok: true, skipped: true };
+  f.imgs.createFile(Utilities.newBlob(Utilities.base64Decode(req.data), 'image/jpeg', name));
+  return { ok: true };
+}
+
+// ページ: 戻す用のデータ
+function savePage(req) {
+  const id = cleanId(req.id);
+  replaceFile(folders().pages, id + '.json', String(req.json), req.updated || 0);
+  return { ok: true };
+}
+
+// アルバム: 戻す用のデータ（名前・ページの並び）
+function saveAlbum(req) {
+  const id = cleanId(req.id);
+  replaceFile(folders().albums, id + '.json', String(req.json), req.mark || '');
+  return { ok: true };
+}
+
+// アルバムの PDF（全部のページを 1 つにまとめたもの）を「超！アルバム」フォルダに置く。前の PDF はごみ箱へ
+function savePdf(req) {
+  const id = cleanId(req.id);
+  const f = folders();
+  findPdfs(f, id).forEach(function (p) { p.setTrashed(true); });
+  const name = cleanName(req.title) + '.pdf';
+  f.main.createFile(Utilities.newBlob(Utilities.base64Decode(req.data), 'application/pdf', name)).setDescription(id);
+  // v12 までの、ページの JPEG が入ったアルバムのフォルダは、PDF になったのでごみ箱へ
+  oldFolders(f, id).forEach(function (d) { d.setTrashed(true); });
+  return { ok: true };
+}
+
+function get(req) {
+  const id = cleanId(req.id);
+  const f = folders();
+  const folder = req.kind === 'album' ? f.albums : f.pages;
+  const it = folder.getFilesByName(id + '.json');
+  if (!it.hasNext()) return { ok: false, error: 'ありません: ' + id };
+  return { ok: true, json: it.next().getBlob().getDataAsString('UTF-8') };
+}
+
+function getImg(req) {
+  const name = cleanImg(req.name);
+  const it = folders().imgs.getFilesByName(name);
+  if (!it.hasNext()) return { ok: false, error: '写真がありません: ' + name };
+  return { ok: true, data: Utilities.base64Encode(it.next().getBlob().getBytes()) };
+}
+
+// アプリで消したページ・アルバムは、ごみ箱ではなく「消したもの」フォルダに移す（あとで取り戻せるように）
+function delPage(req) {
+  const id = cleanId(req.id);
+  const f = folders();
+  const it = f.pages.getFilesByName(id + '.json');
+  while (it.hasNext()) it.next().moveTo(f.del);
+  return { ok: true };
+}
+
+function delAlbum(req) {
+  const id = cleanId(req.id);
+  const f = folders();
+  const it = f.albums.getFilesByName(id + '.json');
+  while (it.hasNext()) it.next().moveTo(f.del);
+  findPdfs(f, id).forEach(function (p) { p.moveTo(f.del); });
+  oldFolders(f, id).forEach(function (d) { d.moveTo(f.del); });
+  return { ok: true };
+}
+
+// スクリプトの画面で一度実行すると、ドライブの使用の許可を先に出せる（なくてもよい）
+function test() {
+  Logger.log(JSON.stringify(list()));
+}
