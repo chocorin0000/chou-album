@@ -1,6 +1,6 @@
 // 電波がないときでも開けるように、ページのファイルを覚えておく。
 // 電波があるときは、いつもサーバーから新しいものを読む（直した版がすぐに届くように）。
-const CACHE = 'album-v2';
+const CACHE = 'album-v3';
 const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'Code.gs.txt',
   'js/app.js', 'js/model.js', 'js/store.js', 'js/render.js', 'js/pageview.js', 'js/cloud.js', 'js/backup.js',
   'js/pdf.js', 'js/zip.js', 'js/ui.js'];

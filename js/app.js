@@ -9,7 +9,7 @@ import { Item, Page, PHOTO, TEXT, INK, LINE, css, COLORS, WIDTH_NAMES, PEN_W, LI
 import { PageView, SELECT, PEN, LINE_T, ARROW, TEXT_T } from './pageview.js';
 import { el, btn, toast, dialog, confirmDlg, askText, check, applyFull, fullSize, shareFile, shareAfterWork, isIPad } from './ui.js';
 
-const VERSION = 'v2（2026-11-02）';
+const VERSION = 'v3（2026-11-02）';
 const $ = id => document.getElementById(id);
 const SCREENS = ['scr-list', 'scr-album', 'scr-edit', 'scr-crop', 'scr-set'];
 let curScreen = 'scr-list';
@@ -136,7 +136,12 @@ async function listMenu() {
 function screenInfo() {
   const t = el('div'); t.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom) 0;visibility:hidden';
   document.body.appendChild(t);
-  const cs = getComputedStyle(t), r = `${innerWidth}x${innerHeight} / screen ${screen.width}x${screen.height} / vv ${visualViewport ? Math.round(visualViewport.height) : '-'} / safe ${cs.paddingTop} ${cs.paddingBottom} / ${standalone() ? 'home' : 'safari'}`;
+  const cs = getComputedStyle(t), px = v => Math.round(parseFloat(v) || 0);
+  const r = `・使える広さ: 横 ${innerWidth} × 縦 ${innerHeight}\n`
+    + `・画面全体: 横 ${screen.width} × 縦 ${screen.height}\n`
+    + `・見えている高さ: ${window.visualViewport ? Math.round(visualViewport.height) : 'わからない'}\n`
+    + `・上のよけ: ${px(cs.paddingTop)}　下のよけ: ${px(cs.paddingBottom)}\n`
+    + `・開き方: ${standalone() ? 'ホーム画面から' : 'Safari から'}`;
   t.remove();
   return r;
 }
@@ -148,7 +153,7 @@ function about() {
       + 'アルバムは、この iPhone・iPad の中（Safari の保存場所）に入ります。Safari の「履歴と Web サイトデータを消去」をすると消えてしまうので、'
       + 'ときどき「保存・バックアップ」でバックアップを取ってください。\n\n'
       + 'Android 版「超！アルバム」とデータの形が同じなので、バックアップのファイルや Google ドライブ（同じスクリプト）で行き来できます。'
-      + '\n\n画面: ' + screenInfo()
+      + '\n\n【画面の大きさ】\n' + screenInfo()
   });
 }
 
