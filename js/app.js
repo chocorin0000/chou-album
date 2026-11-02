@@ -408,7 +408,7 @@ function layoutEdit() {
     colors.append(...c.swatches, c.bWidth, c.bOutline);
     panel.append(tools, colors);
     const vp = el('div', 'vpanel');
-    c.hint.textContent = '2 本指で拡大・縮小、1 本指で動かす\n2 回タップで拡大 ⇔ 全体';
+    c.hint.textContent = '2 本指で拡大・縮小\n2 回タップで拡大 ⇔ 全体';
     vp.append(c.hint, c.bAll, c.bEdit);
     scr.append(top, row, panel, vp);
     E.panel = panel; E.vpanel = vp;
