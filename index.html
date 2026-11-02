@@ -28,7 +28,7 @@ html, body {
 }
 .screen {
   position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--bar);
-  padding: calc(var(--sa-t) + 4px) var(--sa-r) var(--sa-b) var(--sa-l);
+  padding: calc(var(--sa-t) + 4px) var(--sa-r) max(0px, calc(var(--sa-b) - 24px)) var(--sa-l); /* 下は iPhone のよけ（約 34）から 24（約 4mm）減らす */
 }
 .screen[hidden] { display: none; }
 html.full .screen { position: absolute; }
