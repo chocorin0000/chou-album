@@ -9,7 +9,7 @@ import { Item, Page, PHOTO, TEXT, INK, LINE, css, COLORS, WIDTH_NAMES, PEN_W, LI
 import { PageView, SELECT, PEN, LINE_T, ARROW, TEXT_T } from './pageview.js';
 import { el, btn, toast, dialog, confirmDlg, askText, check, applyFull, fullSize, shareFile, shareAfterWork, isIPad } from './ui.js';
 
-const VERSION = 'v4（2026-11-03）';
+const VERSION = 'v5（2026-11-03）';
 const $ = id => document.getElementById(id);
 const SCREENS = ['scr-list', 'scr-album', 'scr-edit', 'scr-crop', 'scr-set'];
 let curScreen = 'scr-list';
